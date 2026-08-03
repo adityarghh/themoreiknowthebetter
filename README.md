@@ -52,11 +52,15 @@ Whether you're learning **Machine Learning, Psychology, Astrophysics, Java, Phil
 
 ### Generated Roadmap
 
-> *(Add screenshot)*
+> <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/2c2aa174-dc11-41ee-8d9b-09b46b1f9dab" />
+
+> <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/911a4788-2457-43ff-9e12-cbd2a19e9fac" />
+
 
 ### Concept Details
 
-> *(Add screenshot)*
+> <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/d330a840-e38d-42b6-bc19-47b66907d8c4" />
+
 
 ---
 
