@@ -1,4 +1,4 @@
-import { generateOrGetRoadmap } from "../../server/roadmapGenerator";
+import { generateOrGetRoadmap } from "../../src/lib/roadmapGenerator";
 
 export default async function handler(req: any, res: any) {
   // CORS Headers
