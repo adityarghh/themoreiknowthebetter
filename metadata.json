@@ -1,0 +1,6 @@
+{
+  "name": "themoreiknowthebetter",
+  "description": "Interactive hand-drawn visual learning roadmap engine for exploring any topic from beginner to expert.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

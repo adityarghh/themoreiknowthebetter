@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-hand: 'Architects Daughter', 'Caveat', cursive, sans-serif;
+    --font-caveat: 'Caveat', cursive, sans-serif;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #000000;
+    color: #ffffff;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-hand {
+    font-family: var(--font-hand);
+  }
+
+  .font-caveat {
+    font-family: var(--font-caveat);
+  }
+}
+
+/* Hand Drawn & Artistic Flair Border Utility Effects */
+.sketch-frame {
+  border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+}
+
+.sketch-border {
+  border: 2px solid #ffffff;
+  border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+}
+
+.sketch-border-sm {
+  border: 1.5px solid #ffffff;
+  border-radius: 225px 12px 205px 12px/12px 205px 12px 225px;
+}
+
+.sketch-border-thick {
+  border: 3px solid #ffffff;
+  border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+}
+
+.sketch-border-dashed {
+  border: 2px dashed rgba(255, 255, 255, 0.6);
+  border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+}
+
+/* Specific Organic Depth Card Radii for Artistic Flair */
+.depth-radius-1 {
+  border-radius: 4px 95% 4px 95%/95% 4px 95% 4px;
+}
+
+.depth-radius-2 {
+  border-radius: 95% 4px 95% 4px/4px 95% 4px 95%;
+}
+
+.depth-radius-3 {
+  border-radius: 5px 85% 15px 95%/95% 15px 85% 5px;
+}
+
+.depth-radius-4 {
+  border-radius: 95% 15px 95% 15px/15px 95% 15px 95%;
+}
+
+.sketch-bg-hover:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
+
+/* React Flow Dark Canvas Adjustments */
+.react-flow__renderer {
+  background-color: #000000 !important;
+}
+
+.react-flow__node {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.react-flow__edge-path {
+  stroke: #ffffff !important;
+  stroke-width: 2px !important;
+  stroke-linecap: round;
+}
+
+.react-flow__controls {
+  box-shadow: none !important;
+  border: 2px solid #ffffff !important;
+  border-radius: 12px !important;
+  background: #0a0a0a !important;
+  padding: 4px !important;
+}
+
+.react-flow__controls-button {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid #333 !important;
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+.react-flow__controls-button:hover {
+  background: #222222 !important;
+}
+
+.react-flow__attribution {
+  display: none !important;
+}
