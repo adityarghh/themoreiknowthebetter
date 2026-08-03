@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { DepthSelectorModal } from './components/DepthSelectorModal';
 import { RoadmapGraphView } from './components/RoadmapGraphView';
@@ -18,6 +18,9 @@ export default function App() {
   const [isDepthModalOpen, setIsDepthModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const [activeGraph, setActiveGraph] = useState<RoadmapGraph | null>(null);
   const [history, setHistory] = useState<UserHistoryItem[]>([]);
@@ -116,6 +119,17 @@ export default function App() {
     setIsResumeBannerVisible(false);
   };
 
+  // Close modal and cancel active request
+  const handleCloseModal = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    setIsDepthModalOpen(false);
+    setLoadingProgress(0);
+  };
+
   // Generate or fetch roadmap graph from API with explicit topic override
   const handleSelectDepth = async (depth: DepthOption, overrideTopic?: string) => {
     const topicToUse = (overrideTopic || searchTopic).trim();
@@ -124,13 +138,25 @@ export default function App() {
       return;
     }
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setLoadingProgress(0);
     setIsLoading(true);
+    setIsDepthModalOpen(true);
+
     try {
       const response = await fetch('/api/roadmap/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: topicToUse, depth })
+        body: JSON.stringify({ topic: topicToUse, depth }),
+        signal: controller.signal
       });
+
+      if (controller.signal.aborted) return;
 
       let graph: RoadmapGraph;
 
@@ -139,20 +165,43 @@ export default function App() {
         graph = generateClientFallbackGraph(topicToUse, depth);
       } else {
         const data = await response.json();
+        if (controller.signal.aborted) return;
         graph = data.graph || generateClientFallbackGraph(topicToUse, depth);
       }
+
+      if (controller.signal.aborted) return;
+
+      setLoadingProgress(100);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      if (controller.signal.aborted) return;
 
       saveActiveGraphState(graph);
       setIsDepthModalOpen(false);
       setCurrentView('roadmap');
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError' || controller.signal.aborted) {
+        console.log("Roadmap generation cancelled.");
+        return;
+      }
+
       console.warn("Error fetching roadmap API, using client fallback graph:", err);
-      const fallback = generateClientFallbackGraph(topicToUse, depth);
-      saveActiveGraphState(fallback);
-      setIsDepthModalOpen(false);
-      setCurrentView('roadmap');
+      if (!controller.signal.aborted) {
+        setLoadingProgress(100);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        if (!controller.signal.aborted) {
+          const fallback = generateClientFallbackGraph(topicToUse, depth);
+          saveActiveGraphState(fallback);
+          setIsDepthModalOpen(false);
+          setCurrentView('roadmap');
+        }
+      }
     } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
       setIsLoading(false);
+      setLoadingProgress(0);
     }
   };
 
@@ -259,8 +308,9 @@ export default function App() {
         topic={searchTopic}
         isOpen={isDepthModalOpen}
         onSelectDepth={handleSelectDepth}
-        onClose={() => setIsDepthModalOpen(false)}
+        onClose={handleCloseModal}
         isLoading={isLoading}
+        progress={loadingProgress}
       />
 
       {/* Navigation & Dashboard Drawer */}

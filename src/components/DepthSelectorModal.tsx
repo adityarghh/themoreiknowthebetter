@@ -9,6 +9,7 @@ interface DepthSelectorModalProps {
   onSelectDepth: (depth: DepthOption) => void;
   onClose: () => void;
   isLoading?: boolean;
+  progress?: number;
 }
 
 export const DEPTH_OPTIONS: DepthOptionInfo[] = [
@@ -51,9 +52,40 @@ export const DepthSelectorModal: React.FC<DepthSelectorModalProps> = ({
   isOpen,
   onSelectDepth,
   onClose,
-  isLoading = false
+  isLoading = false,
+  progress = 0
 }) => {
+  const [simulatedProgress, setSimulatedProgress] = React.useState(0);
+
+  React.useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    if (isOpen && isLoading) {
+      if (progress === 100) {
+        setSimulatedProgress(100);
+        return;
+      }
+
+      interval = setInterval(() => {
+        setSimulatedProgress((prev) => {
+          if (prev >= 95) return 95;
+          const diff = 95 - prev;
+          const step = Math.max(0.5, diff * 0.08);
+          return Math.min(95, prev + step);
+        });
+      }, 100);
+    } else {
+      setSimulatedProgress(0);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isOpen, isLoading, progress]);
+
   if (!isOpen) return null;
+
+  const displayProgress = progress === 100 ? 100 : simulatedProgress;
 
   return (
     <AnimatePresence>
@@ -67,8 +99,8 @@ export const DepthSelectorModal: React.FC<DepthSelectorModalProps> = ({
           {/* Close button */}
           <button
             onClick={onClose}
-            disabled={isLoading}
-            className="absolute top-4 right-4 p-2 sketch-border-sm bg-black hover:bg-zinc-900 transition-colors"
+            className="absolute top-4 right-4 p-2 sketch-border-sm bg-black hover:bg-zinc-900 transition-colors cursor-pointer"
+            title="Cancel"
           >
             <X className="h-4 w-4" />
           </button>
@@ -98,6 +130,20 @@ export const DepthSelectorModal: React.FC<DepthSelectorModalProps> = ({
               <p className="text-xs font-mono text-zinc-400">
                 Resolving concept dependencies & mapping optimal learning path...
               </p>
+
+              {/* Hand-drawn sketch-style progress bar */}
+              <div className="max-w-xs mx-auto pt-4 space-y-2">
+                <div className="w-full h-4 bg-black sketch-border-sm p-0.5 relative overflow-hidden">
+                  <div
+                    className="h-full bg-white transition-all duration-150 ease-out"
+                    style={{ width: `${Math.min(100, Math.max(0, displayProgress))}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-[11px] font-mono text-zinc-400 px-1">
+                  <span>Generating graph...</span>
+                  <span>{Math.round(displayProgress)}%</span>
+                </div>
+              </div>
             </div>
           ) : (
             /* Depth Options Grid */
