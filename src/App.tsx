@@ -4,13 +4,94 @@ import { DepthSelectorModal } from './components/DepthSelectorModal';
 import { RoadmapGraphView } from './components/RoadmapGraphView';
 import { Navigation } from './components/Navigation';
 import { ResumeBanner } from './components/ResumeBanner';
+import { AmbientMusicPlayer } from './components/AmbientMusicPlayer';
+import { ErrorDisplayCard, RoadmapError } from './components/ErrorDisplayCard';
 import { RoadmapGraph, DepthOption, UserHistoryItem, UserBookmark, UserProfile } from './types';
-import { generateClientFallbackGraph } from './lib/fallbackGenerator';
 
 const LOCAL_STORAGE_HISTORY_KEY = 'tmiktb_learning_history_v1';
 const LOCAL_STORAGE_BOOKMARKS_KEY = 'tmiktb_user_bookmarks_v1';
 const LOCAL_STORAGE_PROFILE_KEY = 'tmiktb_user_profile_v1';
 const LOCAL_STORAGE_ACTIVE_GRAPH_KEY = 'tmiktb_active_graph_v1';
+
+function getFrontendErrorObj(status: number, data?: any): RoadmapError {
+  const timestamp = new Date().toISOString();
+  const model = "gemini-2.5-flash";
+
+  if (data && data.title && data.message) {
+    return {
+      title: data.title,
+      message: data.message,
+      details: data.details || {
+        status: data.status || status,
+        code: data.code || `HTTP_${status}`,
+        model,
+        timestamp,
+      },
+    };
+  }
+
+  if (status === 429) {
+    return {
+      title: "Daily AI Generation Limit Reached",
+      message: "Today's AI generation quota has been exhausted. Please try again after the daily quota refreshes.",
+      details: { status: 429, code: "RESOURCE_EXHAUSTED", model, timestamp },
+    };
+  }
+
+  if (status === 503) {
+    return {
+      title: "AI Service Busy",
+      message: "Gemini is currently experiencing unusually high demand. Please try again in a few minutes.",
+      details: { status: 503, code: "SERVICE_UNAVAILABLE", model, timestamp },
+    };
+  }
+
+  if (status === 401) {
+    return {
+      title: "Authentication Failed",
+      message: "Authentication with the AI service failed.",
+      details: { status: 401, code: "UNAUTHENTICATED", model, timestamp },
+    };
+  }
+
+  if (status === 403) {
+    return {
+      title: "Access Forbidden",
+      message: "The configured AI model cannot be accessed.",
+      details: { status: 403, code: "PERMISSION_DENIED", model, timestamp },
+    };
+  }
+
+  if (status === 404) {
+    return {
+      title: "Model Not Found",
+      message: "The requested AI model or endpoint could not be found.",
+      details: { status: 404, code: "NOT_FOUND", model, timestamp },
+    };
+  }
+
+  if (status === 422) {
+    return {
+      title: "Invalid AI Response",
+      message: "The AI returned an invalid response. Please try generating again.",
+      details: { status: 422, code: "INVALID_AI_RESPONSE", model, timestamp },
+    };
+  }
+
+  if (status === 0) {
+    return {
+      title: "Connection Error",
+      message: "Unable to reach the AI service. Check your connection and try again.",
+      details: { status: 0, code: "NETWORK_ERROR", model, timestamp },
+    };
+  }
+
+  return {
+    title: "Unexpected Server Error",
+    message: "An unexpected server error occurred while generating the roadmap.",
+    details: { status: status || 500, code: "INTERNAL_ERROR", model, timestamp },
+  };
+}
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'roadmap'>('landing');
@@ -19,8 +100,10 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [errorState, setErrorState] = useState<RoadmapError | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const lastAttemptedRef = useRef<{ depth: DepthOption; topic: string } | null>(null);
   
   const [activeGraph, setActiveGraph] = useState<RoadmapGraph | null>(null);
   const [history, setHistory] = useState<UserHistoryItem[]>([]);
@@ -138,12 +221,15 @@ export default function App() {
       return;
     }
 
+    lastAttemptedRef.current = { depth, topic: topicToUse };
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    setErrorState(null);
     setLoadingProgress(0);
     setIsLoading(true);
     setIsDepthModalOpen(true);
@@ -158,25 +244,24 @@ export default function App() {
 
       if (controller.signal.aborted) return;
 
-      let graph: RoadmapGraph;
-
-      if (!response.ok) {
-        console.warn('API returned non-200, using client fallback roadmap');
-        graph = generateClientFallbackGraph(topicToUse, depth);
-      } else {
-        const data = await response.json();
-        if (controller.signal.aborted) return;
-        graph = data.graph || generateClientFallbackGraph(topicToUse, depth);
-      }
+      const data = await response.json().catch(() => null);
 
       if (controller.signal.aborted) return;
+
+      if (!response.ok || !data || data.success === false || !data.graph) {
+        const errorObj = getFrontendErrorObj(response.status, data);
+        setIsLoading(false);
+        setIsDepthModalOpen(false);
+        setLoadingProgress(0);
+        setErrorState(errorObj);
+        return;
+      }
 
       setLoadingProgress(100);
       await new Promise((resolve) => setTimeout(resolve, 300));
-
       if (controller.signal.aborted) return;
 
-      saveActiveGraphState(graph);
+      saveActiveGraphState(data.graph);
       setIsDepthModalOpen(false);
       setCurrentView('roadmap');
     } catch (err: any) {
@@ -185,17 +270,12 @@ export default function App() {
         return;
       }
 
-      console.warn("Error fetching roadmap API, using client fallback graph:", err);
-      if (!controller.signal.aborted) {
-        setLoadingProgress(100);
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        if (!controller.signal.aborted) {
-          const fallback = generateClientFallbackGraph(topicToUse, depth);
-          saveActiveGraphState(fallback);
-          setIsDepthModalOpen(false);
-          setCurrentView('roadmap');
-        }
-      }
+      console.warn("Error fetching roadmap API:", err);
+      const errorObj = getFrontendErrorObj(0, null);
+      setIsLoading(false);
+      setIsDepthModalOpen(false);
+      setLoadingProgress(0);
+      setErrorState(errorObj);
     } finally {
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
@@ -284,7 +364,21 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-white selection:text-black">
       {/* View Router */}
-      {currentView === 'landing' ? (
+      {errorState ? (
+        <ErrorDisplayCard
+          error={errorState}
+          onRetry={() => {
+            if (lastAttemptedRef.current) {
+              setErrorState(null);
+              handleSelectDepth(lastAttemptedRef.current.depth, lastAttemptedRef.current.topic);
+            }
+          }}
+          onBackToSearch={() => {
+            setErrorState(null);
+            setCurrentView('landing');
+          }}
+        />
+      ) : currentView === 'landing' ? (
         <LandingPage
           onSearchSubmit={handleInitiateSearch}
           onOpenMenu={() => setIsMenuOpen(true)}
@@ -338,6 +432,9 @@ export default function App() {
         onContinue={handleContinueFromBanner}
         onDismiss={() => setIsResumeBannerVisible(false)}
       />
+
+      {/* Floating Ambient Background Music Player */}
+      <AmbientMusicPlayer />
     </div>
   );
 }

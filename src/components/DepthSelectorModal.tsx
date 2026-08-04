@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DepthOption, DepthOptionInfo } from '../types';
 import { Sparkles, ArrowRight, X } from 'lucide-react';
+import { ambientEngine, AMBIENT_TRACKS } from '../lib/ambientAudio';
 
 interface DepthSelectorModalProps {
   topic: string;
@@ -10,6 +11,7 @@ interface DepthSelectorModalProps {
   onClose: () => void;
   isLoading?: boolean;
   progress?: number;
+  retryStatus?: string;
 }
 
 export const DEPTH_OPTIONS: DepthOptionInfo[] = [
@@ -53,9 +55,19 @@ export const DepthSelectorModal: React.FC<DepthSelectorModalProps> = ({
   onSelectDepth,
   onClose,
   isLoading = false,
-  progress = 0
+  progress = 0,
+  retryStatus = ""
 }) => {
   const [simulatedProgress, setSimulatedProgress] = React.useState(0);
+  const [musicPromptAnswered, setMusicPromptAnswered] = React.useState(false);
+
+  const handleAcceptMusicPrompt = () => {
+    setMusicPromptAnswered(true);
+    if (!ambientEngine.getIsPlaying()) {
+      const randomTrack = AMBIENT_TRACKS[Math.floor(Math.random() * AMBIENT_TRACKS.length)];
+      ambientEngine.start(randomTrack.id, 2);
+    }
+  };
 
   React.useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -140,10 +152,36 @@ export const DepthSelectorModal: React.FC<DepthSelectorModalProps> = ({
                   />
                 </div>
                 <div className="flex justify-between items-center text-[11px] font-mono text-zinc-400 px-1">
-                  <span>Generating graph...</span>
+                  <span>{retryStatus || "Generating graph..."}</span>
                   <span>{Math.round(displayProgress)}%</span>
                 </div>
               </div>
+
+              {/* Ambient Music Prompt */}
+              {!musicPromptAnswered && !ambientEngine.getIsPlaying() && (
+                <div className="pt-4 border-t border-white/20 mt-4 max-w-md mx-auto text-left">
+                  <div className="p-3 sketch-border-sm bg-zinc-950 flex flex-col sm:flex-row items-center justify-between gap-3 text-white">
+                    <div className="flex items-center gap-2 text-xs font-mono text-zinc-300">
+                      <span className="text-base">🎵</span>
+                      <span>Play ambient study music while your roadmap is generated?</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 font-mono text-xs w-full sm:w-auto justify-end">
+                      <button
+                        onClick={handleAcceptMusicPrompt}
+                        className="px-3.5 py-1 sketch-border-sm bg-white text-black hover:bg-zinc-200 transition-all font-bold cursor-pointer"
+                      >
+                        Play
+                      </button>
+                      <button
+                        onClick={() => setMusicPromptAnswered(true)}
+                        className="px-2.5 py-1 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        Not now
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             /* Depth Options Grid */

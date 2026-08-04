@@ -19,7 +19,9 @@ import {
   RotateCcw,
   Sparkles,
   Layers,
-  ChevronDown
+  ChevronDown,
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { HandDrawnNode } from './HandDrawnNode';
 import { NodeDetailDrawer } from './NodeDetailDrawer';
@@ -34,6 +36,9 @@ interface RoadmapGraphViewProps {
   onChangeDepth: (depth: DepthOption) => void;
   isBookmarked?: (nodeId: string) => boolean;
   onToggleBookmark?: (nodeId: string) => void;
+  showOverloadedNotice?: boolean;
+  onRetryAiGeneration?: () => void;
+  onDismissNotice?: () => void;
 }
 
 export const RoadmapGraphView: React.FC<RoadmapGraphViewProps> = ({
@@ -43,7 +48,10 @@ export const RoadmapGraphView: React.FC<RoadmapGraphViewProps> = ({
   onUpdateGraph,
   onChangeDepth,
   isBookmarked,
-  onToggleBookmark
+  onToggleBookmark,
+  showOverloadedNotice = false,
+  onRetryAiGeneration,
+  onDismissNotice
 }) => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showDepthMenu, setShowDepthMenu] = useState(false);
@@ -228,6 +236,45 @@ export const RoadmapGraphView: React.FC<RoadmapGraphViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Overloaded Gemini API Offline Roadmap Notice */}
+      {showOverloadedNotice && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-3xl">
+          <div className="sketch-border bg-black p-4 sm:p-5 shadow-[6px_6px_0px_0px_rgba(255,255,255,1)] text-white relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 sketch-border-sm bg-zinc-900 shrink-0 text-white mt-0.5">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-mono text-zinc-300 leading-relaxed">
+                  Gemini is currently experiencing unusually high demand, so we've loaded a temporary offline roadmap instead. It still provides a structured learning path, but it isn't AI-generated. Try again in a few minutes for the full personalized roadmap.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center font-mono text-xs">
+              {onRetryAiGeneration && (
+                <button
+                  onClick={onRetryAiGeneration}
+                  className="px-3.5 py-2 sketch-border-sm bg-white text-black hover:bg-zinc-200 transition-all font-bold cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Retry AI Generation</span>
+                </button>
+              )}
+              {onDismissNotice && (
+                <button
+                  onClick={onDismissNotice}
+                  className="p-1.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  title="Dismiss Notice"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Interactive Flow Canvas */}
       <div className="w-full h-full pt-16">

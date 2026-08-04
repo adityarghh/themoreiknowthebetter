@@ -1,6 +1,25 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DepthOption, RoadmapGraph, RoadmapNodeData } from "../types";
 
+// Helper to detect temporary Gemini API server overload / high demand (503 / UNAVAILABLE)
+export function isGeminiOverloadedError(err: any): boolean {
+  if (!err) return false;
+  const status = err.status || err.statusCode || err.code;
+  if (status === 503 || status === '503' || status === 'UNAVAILABLE' || status === 504 || status === 'RESOURCE_EXHAUSTED') {
+    return true;
+  }
+  const msg = String(err.message || err || '').toLowerCase();
+  return (
+    msg.includes('503') ||
+    msg.includes('unavailable') ||
+    msg.includes('overloaded') ||
+    msg.includes('high demand') ||
+    msg.includes('resource_exhausted') ||
+    msg.includes('temporarily unavailable') ||
+    msg.includes('service unavailable')
+  );
+}
+
 // Server-side Gemini AI Client with AI Studio telemetry header
 const getGeminiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -245,8 +264,10 @@ Return ONLY JSON conforming strictly to the requested schema.`;
     return { graph, cached: false };
   } catch (error: any) {
     console.error("Gemini API generation error:", error);
-    // Return curated fallback roadmap for seamless UX if API fails or key is missing
-    return { graph: generateFallbackRoadmap(normalizedTopic, depth), cached: false };
+    if (error instanceof SyntaxError || error?.name === 'SyntaxError') {
+      error.isInvalidAiResponse = true;
+    }
+    throw error;
   }
 }
 
